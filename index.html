@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spin the Wheel</title>
+<style>
+  :root{
+    --bg:#faf9f5; --card:#ffffff; --text:#2c2c2a; --muted:#5f5e5a;
+    --border:rgba(0,0,0,0.12);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#1f1e1c; --card:#2a2926; --text:#f1efe8; --muted:#b4b2a9; --border:rgba(255,255,255,0.14); }
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; min-height:100vh; background:var(--bg); color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:1.5rem; padding:2rem 1rem;
+  }
+  h1{font-size:22px; font-weight:500; margin:0; text-align:center;}
+  .stage{position:relative; width:340px; max-width:90vw;}
+  .wheel-wrap{position:relative; width:340px; height:340px; max-width:90vw; margin:0 auto;}
+  .pointer{position:absolute; top:-8px; left:50%; transform:translateX(-50%); z-index:3;
+    width:0;height:0;border-left:14px solid transparent;border-right:14px solid transparent;
+    border-top:22px solid var(--text);}
+  canvas#wheel{display:block; width:100%; height:auto; border-radius:50%;}
+  #spinBtn{position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+    width:78px; height:78px; border-radius:50%; background:var(--card);
+    border:1px solid var(--border); font-size:14px; font-weight:500; color:var(--text);
+    cursor:pointer; z-index:2; transition:transform .1s;}
+  #spinBtn:active{transform:translate(-50%,-50%) scale(0.95);}
+  #result{min-height:52px; text-align:center; font-size:17px; font-weight:500; max-width:420px;}
+  #confetti{position:fixed; inset:0; width:100vw; height:100vh; pointer-events:none; z-index:5;}
+  .muted{color:var(--muted); font-weight:400;}
+</style>
+</head>
+<body>
+  <h1>Spin the Wheel 🎡</h1>
+  <div class="wheel-wrap">
+    <div class="pointer"></div>
+    <canvas id="wheel" width="340" height="340"></canvas>
+    <button id="spinBtn" aria-label="Spin the wheel">Spin</button>
+  </div>
+  <div id="result"><span class="muted">Tap spin to start</span></div>
+  <canvas id="confetti"></canvas>
+
+<script>
+(function(){
+  const wedges = [
+    {label:"Truth Tap",        desc:"Spill one true thing — no take-backs.",     c:"#7F77DD"},
+    {label:"Mini Dare",        desc:"Accept a dare. Nothing extreme.",           c:"#1D9E75"},
+    {label:"Profile Makeover", desc:"Change your profile pic for 24 hours.",     c:"#D85A30"},
+    {label:"Chaos Mode",       desc:"Say something hilarious in world chat.",    c:"#D4537E"},
+    {label:"Confession",       desc:"Share something — you choose how deep.",    c:"#378ADD"},
+    {label:"Bold Move",        desc:"You take the initiative this round.",       c:"#BA7517"},
+    {label:"Loser's Toll",     desc:"Loser owes the winner — winner's pick.",    c:"#639922"}
+  ];
+
+  const cv=document.getElementById('wheel'), ctx=cv.getContext('2d');
+  const N=wedges.length, R=170, cx=170, cy=170, arc=2*Math.PI/N;
+
+  function draw(rot){
+    ctx.clearRect(0,0,340,340);
+    for(let i=0;i<N;i++){
+      const a0=rot+i*arc, a1=a0+arc;
+      ctx.beginPath(); ctx.moveTo(cx,cy); ctx.arc(cx,cy,R,a0,a1); ctx.closePath();
+      ctx.fillStyle=wedges[i].c; ctx.fill();
+      ctx.strokeStyle="rgba(255,255,255,0.6)"; ctx.lineWidth=2; ctx.stroke();
+      ctx.save();
+      ctx.translate(cx,cy); ctx.rotate(a0+arc/2);
+      ctx.textAlign="right"; ctx.fillStyle="#fff"; ctx.font="500 13px sans-serif";
+      ctx.fillText(wedges[i].label, R-14, 5);
+      ctx.restore();
+    }
+    ctx.beginPath(); ctx.arc(cx,cy,40,0,2*Math.PI); ctx.fillStyle="rgba(0,0,0,0.05)"; ctx.fill();
+  }
+
+  let rot=0, spinning=false;
+  draw(rot);
+
+  const btn=document.getElementById('spinBtn'), res=document.getElementById('result');
+  const cc=document.getElementById('confetti'), cctx=cc.getContext('2d');
+  function sizeConfetti(){ cc.width=window.innerWidth; cc.height=window.innerHeight; }
+  sizeConfetti(); window.addEventListener('resize', sizeConfetti);
+
+  let parts=[];
+  function burst(){
+    const cxp=window.innerWidth/2, cyp=window.innerHeight/2 - 60;
+    const cols=["#7F77DD","#1D9E75","#D85A30","#D4537E","#378ADD","#BA7517","#639922"];
+    for(let i=0;i<90;i++){
+      parts.push({x:cxp, y:cyp, vx:(Math.random()-0.5)*12, vy:Math.random()*-12-3,
+        g:0.35, life:110, col:cols[i%cols.length], s:Math.random()*6+3});
+    }
+  }
+  function tick(){
+    cctx.clearRect(0,0,cc.width,cc.height);
+    parts.forEach(p=>{p.vy+=p.g; p.x+=p.vx; p.y+=p.vy; p.life--;
+      cctx.globalAlpha=Math.max(0,p.life/110); cctx.fillStyle=p.col;
+      cctx.fillRect(p.x,p.y,p.s,p.s);});
+    cctx.globalAlpha=1;
+    parts=parts.filter(p=>p.life>0);
+    if(parts.length) requestAnimationFrame(tick);
+  }
+
+  btn.addEventListener('click',function(){
+    if(spinning) return;
+    spinning=true; res.innerHTML='<span class="muted">Spinning…</span>';
+    const turns=5+Math.random()*3;
+    const target=rot+turns*2*Math.PI;
+    const start=rot, dur=4200, t0=performance.now();
+    function anim(now){
+      const t=Math.min(1,(now-t0)/dur);
+      const e=1-Math.pow(1-t,3);
+      rot=start+(target-start)*e;
+      draw(rot);
+      if(t<1){requestAnimationFrame(anim);}
+      else{
+        spinning=false;
+        const norm=((rot%(2*Math.PI))+2*Math.PI)%(2*Math.PI);
+        const pointer=(-Math.PI/2 - norm + 2*Math.PI)%(2*Math.PI);
+        const idx=Math.floor(pointer/arc)%N;
+        const w=wedges[idx];
+        res.innerHTML='<span style="color:'+w.c+'">'+w.label+'</span> — '+w.desc;
+        burst(); requestAnimationFrame(tick);
+      }
+    }
+    requestAnimationFrame(anim);
+  });
+})();
+</script>
+</body>
+</html>
